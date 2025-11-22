@@ -2,6 +2,7 @@ import { cacheData, getCachedData, queueAction } from './store.js';
 import { showToast } from './ui/toast.js';
 
 export const API_BASE = 'https://sumit11.serv00.net/roomOS/server/public';
+export const APP_VERSION = '0.9.0'; // Current App Version
 
 export async function apiCall(endpoint, method = 'GET', body = null, token = null) {
     const headers = {

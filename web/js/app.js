@@ -10,6 +10,7 @@ import { renderExpenseAnalytics } from './ui/expense-analytics.js';
 import { renderChat, stopChatPolling } from './ui/chat.js';
 import { getState, updateState } from './state.js';
 import { showToast } from './ui/toast.js';
+import { checkUpdates } from './ui/updates.js';
 import './sync.js'; // Start sync listener
 
 // Expose app to window for global access (e.g. onclick in HTML)
@@ -23,7 +24,7 @@ window.app = {
 // Toggle Chat Function
 function toggleChat() {
     const currentView = localStorage.getItem('last_view');
-    
+
     if (currentView === 'chat') {
         // If we're in chat, go back to the previous view
         const previousView = localStorage.getItem('view_before_chat') || 'dashboard';
@@ -211,4 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus(); // Initial check
+
+    // Check for updates
+    checkUpdates();
 });
