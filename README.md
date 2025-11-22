@@ -33,6 +33,11 @@ RoomOS is a comprehensive web application designed to streamline the management 
     - Host the `web` directory on a web server (e.g., Apache, Nginx).
     - Ensure the PHP backend is accessible.
 
+## Documentation
+
+- [API Reference](docs/API_REFERENCE.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+
 ## Project Structure
 
 - `web/`: Frontend source code (HTML, CSS, JS assets).
