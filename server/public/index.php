@@ -127,14 +127,11 @@ $routes = [
     '/schedule/get' => ['ScheduleController', 'get'],
     '/schedule/generate-plan' => ['ScheduleController', 'generatePlan'],
     
+    // Updates
+    '/updates/check' => ['UpdateController', 'getLatestUpdate'],
+    
     // Test
     '/test' => ['TestController', 'index'],
-
-    // App Updates
-    '/app/updates' => ['UpdateController', 'check'],
-
-    // Debug
-    '/debug/info' => ['TestController', 'debugInfo'],
 ];
 
 if (array_key_exists($uri, $routes)) {

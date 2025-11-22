@@ -3,42 +3,42 @@ import { showToast } from './toast.js';
 import { getState } from '../state.js';
 
 export async function renderProfile() {
-    const container = document.getElementById('view-container');
-    container.innerHTML = '<div class="flex-center p-4"><div class="loader">Loading...</div></div>';
+  const container = document.getElementById('view-container');
+  container.innerHTML = '<div class="flex-center p-4"><div class="loader">Loading...</div></div>';
 
-    try {
-        const token = localStorage.getItem('token');
-        const state = getState();
-        const user = state.user;
+  try {
+    const token = localStorage.getItem('token');
+    const state = getState();
+    const user = state.user;
 
-        // Fetch schedule
-        const scheduleRes = await apiCall('/schedule/get', 'GET', null, token);
-        const schedule = scheduleRes.schedule || {};
+    // Fetch schedule
+    const scheduleRes = await apiCall('/schedule/get', 'GET', null, token);
+    const schedule = scheduleRes.schedule || {};
 
-        // Check join request status if user has no group
-        let joinRequestStatus = null;
-        if (!user.group_id) {
-            try {
-                const statusRes = await apiCall('/group/my-request-status', 'GET', null, token);
-                joinRequestStatus = statusRes;
-            } catch (e) {
-                console.error('Failed to check join status:', e);
-                joinRequestStatus = { has_request: false };
-            }
-        }
+    // Check join request status if user has no group
+    let joinRequestStatus = null;
+    if (!user.group_id) {
+      try {
+        const statusRes = await apiCall('/group/my-request-status', 'GET', null, token);
+        joinRequestStatus = statusRes;
+      } catch (e) {
+        console.error('Failed to check join status:', e);
+        joinRequestStatus = { has_request: false };
+      }
+    }
 
-        // Fetch pending requests (admin only)
-        let pendingRequests = [];
-        if (user.role === 'admin') {
-            try {
-                const reqRes = await apiCall('/group/pending-requests', 'GET', null, token);
-                pendingRequests = reqRes.requests || [];
-            } catch (e) {
-                console.error('Failed to fetch pending requests:', e);
-            }
-        }
+    // Fetch pending requests (admin only)
+    let pendingRequests = [];
+    if (user.role === 'admin') {
+      try {
+        const reqRes = await apiCall('/group/pending-requests', 'GET', null, token);
+        pendingRequests = reqRes.requests || [];
+      } catch (e) {
+        console.error('Failed to fetch pending requests:', e);
+      }
+    }
 
-        const html = `
+    const html = `
       <div class="fade-in" style="padding-bottom: 100px;">
         <h1 style="margin-bottom: var(--space-md); font-size: 1.75rem; font-weight: 800;">Profile</h1>
 
@@ -98,64 +98,106 @@ export async function renderProfile() {
             Logout
           </button>
         </div>
+
+        <!-- Logout Confirmation Modal -->
+        <div id="logout-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center;">
+          <div style="background: var(--bg-card); border-radius: var(--radius-lg); padding: var(--space-xl); max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+            <h3 style="margin: 0 0 var(--space-md) 0; font-size: 1.25rem; color: var(--text-primary);">Confirm Logout</h3>
+            <p style="margin: 0 0 var(--space-lg) 0; color: var(--text-secondary); font-size: 0.95rem;">
+              Are you sure you want to logout? You'll need to sign in again to access your account.
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+              <button id="cancel-logout-btn" class="btn" style="background: var(--bg-elevated); color: var(--text-primary);">
+                Cancel
+              </button>
+              <button id="confirm-logout-btn" class="btn" style="background: var(--danger); color: white;">
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
-        container.innerHTML = html;
+    container.innerHTML = html;
 
-        // === EVENT LISTENERS ===
+    // === EVENT LISTENERS ===
 
-        document.getElementById('save-schedule-btn')?.addEventListener('click', saveSchedule);
-        document.getElementById('generate-plan-btn')?.addEventListener('click', generatePlan);
-        document.getElementById('logout-btn')?.addEventListener('click', logout);
+    document.getElementById('save-schedule-btn')?.addEventListener('click', saveSchedule);
+    document.getElementById('generate-plan-btn')?.addEventListener('click', generatePlan);
+    document.getElementById('logout-btn')?.addEventListener('click', logout);
 
-        // Off-day checkboxes
-        document.querySelectorAll('.off-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                const day = e.target.dataset.day;
-                const timeInputs = document.querySelectorAll(`[data-day="${day}"].time-input`);
-                timeInputs.forEach(input => {
-                    input.disabled = e.target.checked;
-                    if (e.target.checked) input.value = '';
-                });
-            });
+    // Off-day checkboxes
+    document.querySelectorAll('.off-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const day = e.target.dataset.day;
+        const timeInputs = document.querySelectorAll(`[data-day="${day}"].time-input`);
+        timeInputs.forEach(input => {
+          input.disabled = e.target.checked;
+          if (e.target.checked) input.value = '';
         });
+      });
+    });
 
-        // Pending requests buttons (THE FIX IS HERE)
-        document.querySelectorAll('.approve-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const card = btn.closest('.pending-request-item');
-                const requestId = card?.dataset?.requestId;
-                if (requestId) await approveRequest(requestId);
-            });
-        });
+    // Pending requests buttons (THE FIX IS HERE)
+    document.querySelectorAll('.approve-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const card = btn.closest('.pending-request-item');
+        const requestId = card?.dataset?.requestId;
+        if (requestId) await approveRequest(requestId);
+      });
+    });
 
-        document.querySelectorAll('.reject-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const card = btn.closest('.pending-request-item');
-                const requestId = card?.dataset?.requestId;
-                if (requestId && confirm('Are you sure you want to reject this request?')) {
-                    await rejectRequest(requestId);
-                }
-            });
-        });
+    document.querySelectorAll('.reject-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const card = btn.closest('.pending-request-item');
+        const requestId = card?.dataset?.requestId;
+        if (requestId && confirm('Are you sure you want to reject this request?')) {
+          await rejectRequest(requestId);
+        }
+      });
+    });
 
-    } catch (error) {
-        container.innerHTML = `<div class="p-4" style="color: var(--danger)">Error: ${error.message}</div>`;
-    }
+    // Logout Modal Handlers
+    const logoutModal = document.getElementById('logout-modal');
+    const cancelLogoutBtn = document.getElementById('cancel-logout-btn');
+    const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
+
+    // Close modal when clicking outside
+    logoutModal.addEventListener('click', (e) => {
+      if (e.target === logoutModal) {
+        logoutModal.style.display = 'none';
+      }
+    });
+
+    // Cancel button
+    cancelLogoutBtn.addEventListener('click', () => {
+      logoutModal.style.display = 'none';
+    });
+
+    // Confirm logout button
+    confirmLogoutBtn.addEventListener('click', () => {
+      localStorage.clear();
+      window.location.reload();
+    });
+
+
+  } catch (error) {
+    container.innerHTML = `<div class="p-4" style="color: var(--danger)">Error: ${error.message}</div>`;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renderScheduleForm(schedule) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    let html = '';
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  let html = '';
 
-    days.forEach(day => {
-        const daySchedule = schedule[day] || { start: '', end: '', off: false };
-        const isOff = !!daySchedule.off;
+  days.forEach(day => {
+    const daySchedule = schedule[day] || { start: '', end: '', off: false };
+    const isOff = !!daySchedule.off;
 
-        html += `
+    html += `
       <div style="margin-bottom: var(--space-md); padding: var(--space-md); background: var(--bg-elevated); border-radius: var(--radius-md);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
           <div style="font-weight: 600; color: var(--text-primary);">${day}</div>
@@ -178,15 +220,15 @@ function renderScheduleForm(schedule) {
         </div>
       </div>
     `;
-    });
+  });
 
-    return html;
+  return html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 function renderPendingRequests(requests) {
-    let html = `
+  let html = `
     <div class="card">
       <h2>Pending Join Requests</h2>
       <p style="margin: 0 0 var(--space-md) 0; color: var(--text-secondary); font-size: 0.85rem;">
@@ -195,8 +237,8 @@ function renderPendingRequests(requests) {
       <div style="display: flex; flex-direction: column; gap: var(--space-md);">
   `;
 
-    requests.forEach(req => {
-        html += `
+  requests.forEach(req => {
+    html += `
       <div class="pending-request-item" data-request-id="${req.id}"
            style="padding: var(--space-md); background: var(--bg-elevated); border-radius: var(--radius-md);">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-sm);">
@@ -214,83 +256,83 @@ function renderPendingRequests(requests) {
         </div>
       </div>
     `;
-    });
+  });
 
-    html += `</div></div>`;
-    return html;
+  html += `</div></div>`;
+  return html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function saveSchedule() {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const schedule = {};
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const schedule = {};
 
-    days.forEach(day => {
-        const off = document.querySelector(`.off-checkbox[data-day="${day}"]`).checked;
-        if (off) {
-            schedule[day] = { start: '', end: '', off: true };
-        } else {
-            const start = document.querySelector(`.schedule-input[data-day="${day}"][data-type="start"]`).value;
-            const end = document.querySelector(`.schedule-input[data-day="${day}"][data-type="end"]`).value;
-            schedule[day] = { start, end, off: false };
-        }
-    });
-
-    try {
-        const token = localStorage.getItem('token');
-        await apiCall('/schedule/save', 'POST', { schedule }, token);
-        showToast('Schedule saved successfully!', 'success');
-    } catch (err) {
-        showToast(err.message, 'error');
+  days.forEach(day => {
+    const off = document.querySelector(`.off-checkbox[data-day="${day}"]`).checked;
+    if (off) {
+      schedule[day] = { start: '', end: '', off: true };
+    } else {
+      const start = document.querySelector(`.schedule-input[data-day="${day}"][data-type="start"]`).value;
+      const end = document.querySelector(`.schedule-input[data-day="${day}"][data-type="end"]`).value;
+      schedule[day] = { start, end, off: false };
     }
+  });
+
+  try {
+    const token = localStorage.getItem('token');
+    await apiCall('/schedule/save', 'POST', { schedule }, token);
+    showToast('Schedule saved successfully!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 async function generatePlan() {
-    if (!confirm('Generate weekly plan based on everyone\'s schedules? This will overwrite the current plan.')) return;
+  if (!confirm('Generate weekly plan based on everyone\'s schedules? This will overwrite the current plan.')) return;
 
-    const btn = document.getElementById('generate-plan-btn');
-    btn.disabled = true;
-    btn.textContent = 'Generating...';
+  const btn = document.getElementById('generate-plan-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
 
-    try {
-        const token = localStorage.getItem('token');
-        await apiCall('/schedule/generate-plan', 'POST', null, token);
-        showToast('Weekly plan generated successfully!', 'success');
-        setTimeout(() => window.app.navigate('roster'), 1500);
-    } catch (err) {
-        showToast(err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generate Weekly Plan';
-    }
+  try {
+    const token = localStorage.getItem('token');
+    await apiCall('/schedule/generate-plan', 'POST', null, token);
+    showToast('Weekly plan generated successfully!', 'success');
+    setTimeout(() => window.app.navigate('roster'), 1500);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Weekly Plan';
+  }
 }
 
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
-        localStorage.clear();
-        window.location.reload();
-    }
+  const logoutModal = document.getElementById('logout-modal');
+  if (logoutModal) {
+    logoutModal.style.display = 'flex';
+  }
 }
 
 async function approveRequest(requestId) {
-    try {
-        const token = localStorage.getItem('token');
-        await apiCall('/group/approve-request', 'POST', { request_id: requestId }, token);
-        showToast('Request approved!', 'success');
-        renderProfile(); // refresh
-    } catch (err) {
-        showToast(err.message || 'Failed to approve', 'error');
-    }
+  try {
+    const token = localStorage.getItem('token');
+    await apiCall('/group/approve-request', 'POST', { request_id: requestId }, token);
+    showToast('Request approved!', 'success');
+    renderProfile(); // refresh
+  } catch (err) {
+    showToast(err.message || 'Failed to approve', 'error');
+  }
 }
 
 async function rejectRequest(requestId) {
-    try {
-        const token = localStorage.getItem('token');
-        await apiCall('/group/reject-request', 'POST', { request_id: requestId }, token);
-        showToast('Request rejected', 'info');
-        renderProfile();
-    } catch (err) {
-        showToast(err.message || 'Failed to reject', 'error');
-    }
+  try {
+    const token = localStorage.getItem('token');
+    await apiCall('/group/reject-request', 'POST', { request_id: requestId }, token);
+    showToast('Request rejected', 'info');
+    renderProfile();
+  } catch (err) {
+    showToast(err.message || 'Failed to reject', 'error');
+  }
 }

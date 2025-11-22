@@ -10,7 +10,7 @@ import { renderExpenseAnalytics } from './ui/expense-analytics.js';
 import { renderChat, stopChatPolling } from './ui/chat.js';
 import { getState, updateState } from './state.js';
 import { showToast } from './ui/toast.js';
-import { checkUpdates } from './ui/updates.js';
+import { startUpdateChecker, checkForUpdates } from './ui/updates.js';
 import './sync.js'; // Start sync listener
 
 // Expose app to window for global access (e.g. onclick in HTML)
@@ -18,7 +18,8 @@ window.app = {
     navigate: navigate,
     toggleTheme: toggleTheme,
     showToast: showToast,
-    toggleChat: toggleChat
+    toggleChat: toggleChat,
+    checkForUpdates: checkForUpdates // For manual testing
 };
 
 // Toggle Chat Function
@@ -86,13 +87,17 @@ export function navigate(view) {
         }
     }
 
-    // Hide/Show bottom nav based on view
+    // Hide/Show bottom nav and chat button based on view
+    const chatBtn = document.getElementById('chat-btn');
+    const shouldHideNav = ['chat', 'login', 'group_setup'].includes(view);
+    const shouldHideChat = ['login', 'group_setup'].includes(view);
+
     if (bottomNav) {
-        if (view === 'chat') {
-            bottomNav.style.display = 'none';
-        } else {
-            bottomNav.style.display = 'flex';
-        }
+        bottomNav.style.display = shouldHideNav ? 'none' : 'flex';
+    }
+
+    if (chatBtn) {
+        chatBtn.style.display = shouldHideChat ? 'none' : 'flex';
     }
 
     // Update Nav Active State
@@ -213,6 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus(); // Initial check
 
-    // Check for updates
-    checkUpdates();
+    // Start Update Checker (only for logged-in users)
+    if (state.token) {
+        startUpdateChecker();
+    }
 });

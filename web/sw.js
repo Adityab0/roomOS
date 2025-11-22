@@ -1,4 +1,4 @@
-const CACHE_NAME = 'roomos-v5';
+const CACHE_NAME = 'roomos-v4';
 const ASSETS = [
     './',
     './index.html',
@@ -18,7 +18,6 @@ const ASSETS = [
     './js/ui/transactions.js',
     './js/ui/chat.js',
     './js/ui/toast.js',
-    './js/ui/updates.js',
     './manifest.json',
     './icon.svg'
 ];
