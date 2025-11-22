@@ -313,19 +313,23 @@ class ScheduleController {
             }
 
             // === PASSENGER ASSIGNMENT ===
-            $allWorkers = array_unique(array_merge($morningWorkerNames, $nightWorkerNames));
-            $passengerM = null;
-            $passengerN = null;
-            
+            // Identify who is NOT working in the morning
+            $morningPassengersList = [];
             foreach ($peopleInfo as $person) {
-                if (!in_array($person['name'], $allWorkers)) {
-                    if (!$passengerM) {
-                        $passengerM = $person['name'];
-                    } elseif (!$passengerN) {
-                        $passengerN = $person['name'];
-                    }
+                if (!in_array($person['name'], $morningWorkerNames)) {
+                    $morningPassengersList[] = $person['name'];
                 }
             }
+            $passengerM = !empty($morningPassengersList) ? implode(' & ', $morningPassengersList) : 'None';
+
+            // Identify who is NOT working in the night
+            $nightPassengersList = [];
+            foreach ($peopleInfo as $person) {
+                if (!in_array($person['name'], $nightWorkerNames)) {
+                    $nightPassengersList[] = $person['name'];
+                }
+            }
+            $passengerN = !empty($nightPassengersList) ? implode(' & ', $nightPassengersList) : 'None';
 
             $plan[$dayIndex] = [
                 'morning' => $finalMorningWorkers,
