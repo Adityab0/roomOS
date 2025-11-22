@@ -163,17 +163,7 @@ export async function renderChat() {
             }
         </style>
         <div class="fade-in" style="height: 100vh; display: flex; flex-direction: column;">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
-                <h1 style="margin: 0;">Group Chat</h1>
-                <div style="display: flex; gap: 8px;">
-                    <button id="refresh-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary); padding: 8px; transition: transform 0.3s;">
-                        <i class="ph ph-arrows-clockwise"></i>
-                    </button>
-                    <button id="menu-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary); padding: 8px;">
-                        <i class="ph ph-list"></i>
-                    </button>
-                </div>
-            </div>
+         
             
             <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 10px 16px 80px 16px; display: flex; flex-direction: column; gap: 4px;">
                 <div class="loader flex-center w-full"></div>
@@ -217,26 +207,6 @@ export async function renderChat() {
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const user = JSON.parse(localStorage.getItem('user'));
-    const menuBtn = document.getElementById('menu-btn');
-    const menu = document.getElementById('hamburger-menu');
-    const overlay = document.getElementById('menu-overlay');
-    const refreshBtn = document.getElementById('refresh-btn');
-
-    // Menu handlers
-    menuBtn.addEventListener('click', () => {
-        menu.classList.add('open');
-        overlay.classList.add('show');
-    });
-
-    overlay.addEventListener('click', () => {
-        menu.classList.remove('open');
-        overlay.classList.remove('show');
-    });
-
-    // Refresh handler
-    refreshBtn.addEventListener('click', async () => {
-        await loadMessages(msgContainer, user.id);
-    });
 
     // Initial Load
     await loadMessages(msgContainer, user.id);

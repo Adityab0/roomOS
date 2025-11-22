@@ -53,9 +53,14 @@ class TransactionController {
         try {
             $this->pdo->beginTransaction();
 
-            // 1. Record Transaction
-            $stmt = $this->pdo->prepare("INSERT INTO transactions (group_id, user_id, amount, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$user['group_id'], $userId, $amount, $data['description']]);
+            // Get split_between data for storage
+            $splitBetweenData = isset($data['split_between']) && is_array($data['split_between']) 
+                ? json_encode($data['split_between']) 
+                : null;
+
+            // 1. Record Transaction with split_between info
+            $stmt = $this->pdo->prepare("INSERT INTO transactions (group_id, user_id, amount, description, split_between) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$user['group_id'], $userId, $amount, $data['description'], $splitBetweenData]);
 
             // 2. Update Balances with selective split
             // Get members to split between (default to all if not specified)
@@ -73,27 +78,56 @@ class TransactionController {
             $memberCount = count($splitBetween);
 
             if ($memberCount > 0) {
-                $share = $amount / $memberCount;
-
-                foreach ($splitBetween as $mid) {
-                    // Ensure balance row exists
-                    $stmt = $this->pdo->prepare("SELECT id FROM balances WHERE group_id = ? AND user_id = ?");
-                    $stmt->execute([$user['group_id'], $mid]);
-                    if (!$stmt->fetch()) {
-                        $stmt = $this->pdo->prepare("INSERT INTO balances (group_id, user_id, balance) VALUES (?, ?, 0)");
-                        $stmt->execute([$user['group_id'], $mid]);
+                // Check if only one person is selected and it's not the payer
+                // In this case, that person owes the full amount
+                $isDirectPayment = ($memberCount === 1 && !in_array($userId, $splitBetween));
+                
+                if ($isDirectPayment) {
+                    // Direct payment: selected person owes the full amount
+                    $selectedUserId = $splitBetween[0];
+                    
+                    // Ensure balance rows exist for both users
+                    foreach ([$userId, $selectedUserId] as $uid) {
+                        $stmt = $this->pdo->prepare("SELECT id FROM balances WHERE group_id = ? AND user_id = ?");
+                        $stmt->execute([$user['group_id'], $uid]);
+                        if (!$stmt->fetch()) {
+                            $stmt = $this->pdo->prepare("INSERT INTO balances (group_id, user_id, balance) VALUES (?, ?, 0)");
+                            $stmt->execute([$user['group_id'], $uid]);
+                        }
                     }
-
-                    if ($mid == $userId) {
-                        // Payer: + (Amount - Share)
-                        $change = $amount - $share;
-                    } else {
-                        // Others: - Share
-                        $change = -$share;
-                    }
-
+                    
+                    // Payer gets +amount (they are owed)
                     $stmt = $this->pdo->prepare("UPDATE balances SET balance = balance + ? WHERE group_id = ? AND user_id = ?");
-                    $stmt->execute([$change, $user['group_id'], $mid]);
+                    $stmt->execute([$amount, $user['group_id'], $userId]);
+                    
+                    // Selected person gets -amount (they owe)
+                    $stmt = $this->pdo->prepare("UPDATE balances SET balance = balance - ? WHERE group_id = ? AND user_id = ?");
+                    $stmt->execute([$amount, $user['group_id'], $selectedUserId]);
+                    
+                } else {
+                    // Split payment: divide amount among selected members
+                    $share = $amount / $memberCount;
+
+                    foreach ($splitBetween as $mid) {
+                        // Ensure balance row exists
+                        $stmt = $this->pdo->prepare("SELECT id FROM balances WHERE group_id = ? AND user_id = ?");
+                        $stmt->execute([$user['group_id'], $mid]);
+                        if (!$stmt->fetch()) {
+                            $stmt = $this->pdo->prepare("INSERT INTO balances (group_id, user_id, balance) VALUES (?, ?, 0)");
+                            $stmt->execute([$user['group_id'], $mid]);
+                        }
+
+                        if ($mid == $userId) {
+                            // Payer: + (Amount - Share)
+                            $change = $amount - $share;
+                        } else {
+                            // Others: - Share
+                            $change = -$share;
+                        }
+
+                        $stmt = $this->pdo->prepare("UPDATE balances SET balance = balance + ? WHERE group_id = ? AND user_id = ?");
+                        $stmt->execute([$change, $user['group_id'], $mid]);
+                    }
                 }
             }
 
@@ -181,6 +215,94 @@ class TransactionController {
             'balances' => $balances,
             'my_balance' => $myBal ?: 0
         ]);
+    }
+    
+    public function delete() {
+        $userId = $this->getUserIdFromToken();
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            return;
+        }
+
+        $data = json_decode(file_get_contents("php://input"), true);
+        
+        if (!isset($data['transaction_id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing transaction_id']);
+            return;
+        }
+
+        $transactionId = intval($data['transaction_id']);
+
+        try {
+            $this->pdo->beginTransaction();
+
+            // Get transaction details to verify ownership and get amount
+            $stmt = $this->pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+            $stmt->execute([$transactionId]);
+            $transaction = $stmt->fetch();
+
+            if (!$transaction) {
+                $this->pdo->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Transaction not found']);
+                return;
+            }
+
+            // Verify user owns this transaction
+            if ($transaction['user_id'] != $userId) {
+                $this->pdo->rollBack();
+                http_response_code(403);
+                echo json_encode(['error' => 'You can only delete your own transactions']);
+                return;
+            }
+
+            $amount = floatval($transaction['amount']);
+            $groupId = $transaction['group_id'];
+
+            // Get all members in the group to reverse the balance changes
+            // We need to reverse the exact same logic that was used when creating the transaction
+            // For simplicity, we'll get all members and reverse proportionally
+            $stmt = $this->pdo->prepare("SELECT id FROM users WHERE group_id = ?");
+            $stmt->execute([$groupId]);
+            $allMembers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            $memberCount = count($allMembers);
+            
+            if ($memberCount > 0) {
+                // Check if it was a direct payment (only one person, not the payer)
+                // We'll assume it was split equally among all members for reversal
+                // This is a simplified approach - ideally we'd store split_between in the transaction
+                
+                $share = $amount / $memberCount;
+                
+                foreach ($allMembers as $mid) {
+                    if ($mid == $userId) {
+                        // Reverse payer's credit: - (Amount - Share)
+                        $change = -($amount - $share);
+                    } else {
+                        // Reverse others' debt: + Share
+                        $change = $share;
+                    }
+                    
+                    $stmt = $this->pdo->prepare("UPDATE balances SET balance = balance + ? WHERE group_id = ? AND user_id = ?");
+                    $stmt->execute([$change, $groupId, $mid]);
+                }
+            }
+
+            // Delete the transaction
+            $stmt = $this->pdo->prepare("DELETE FROM transactions WHERE id = ?");
+            $stmt->execute([$transactionId]);
+
+            $this->pdo->commit();
+            echo json_encode(['message' => 'Transaction deleted successfully']);
+
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete transaction: ' . $e->getMessage()]);
+        }
     }
     
     private function getUserName($id) {

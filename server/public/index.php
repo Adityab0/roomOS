@@ -116,6 +116,7 @@ $routes = [
     // Transactions
     '/transactions/add' => ['TransactionController', 'add'],
     '/transactions/list' => ['TransactionController', 'list'],
+    '/transactions/delete' => ['TransactionController', 'delete'],
 
     // Chat
     '/chat/send' => ['ChatController', 'send'],

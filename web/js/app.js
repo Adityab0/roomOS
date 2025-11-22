@@ -6,6 +6,7 @@ import { renderCrew } from './ui/crew.js';
 import { renderRules } from './ui/rules.js';
 import { renderProfile } from './ui/profile.js';
 import { renderTransactions } from './ui/transactions.js';
+import { renderExpenseAnalytics } from './ui/expense-analytics.js';
 import { renderChat, stopChatPolling } from './ui/chat.js';
 import { getState, updateState } from './state.js';
 import { showToast } from './ui/toast.js';
@@ -15,8 +16,23 @@ import './sync.js'; // Start sync listener
 window.app = {
     navigate: navigate,
     toggleTheme: toggleTheme,
-    showToast: showToast
+    showToast: showToast,
+    toggleChat: toggleChat
 };
+
+// Toggle Chat Function
+function toggleChat() {
+    const currentView = localStorage.getItem('last_view');
+    
+    if (currentView === 'chat') {
+        // If we're in chat, go back to the previous view
+        const previousView = localStorage.getItem('view_before_chat') || 'dashboard';
+        navigate(previousView);
+    } else {
+        // If we're not in chat, go to chat
+        navigate('chat');
+    }
+}
 
 // Router
 export function navigate(view) {
@@ -51,7 +67,22 @@ export function navigate(view) {
 
     // Save current view
     if (view !== 'login' && view !== 'group_setup') {
+        // Store previous view before entering chat
+        const currentView = localStorage.getItem('last_view');
+        if (view === 'chat' && currentView && currentView !== 'chat') {
+            localStorage.setItem('view_before_chat', currentView);
+        }
         localStorage.setItem('last_view', view);
+    }
+
+    // Update header title based on view
+    const headerTitle = document.querySelector('.app-header h1');
+    if (headerTitle) {
+        if (view === 'chat') {
+            headerTitle.textContent = 'Chat';
+        } else {
+            headerTitle.textContent = 'RoomOS';
+        }
     }
 
     // Hide/Show bottom nav based on view
@@ -101,6 +132,9 @@ export function navigate(view) {
             break;
         case 'transactions':
             renderTransactions();
+            break;
+        case 'expense-analytics':
+            renderExpenseAnalytics();
             break;
         case 'chat':
             renderChat();

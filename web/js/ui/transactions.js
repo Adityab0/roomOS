@@ -19,39 +19,49 @@ export async function renderTransactions() {
         const balances = transRes.balances;
         const members = membersRes.members;
 
-        // Calculate total expenses (sum of all transactions I made)
+        // Calculate total expenses for current month
         const currentUser = getState().user;
         const myTransactions = transactions.filter(t => t.user_id === currentUser.id);
-        const totalExpenses = myTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        
+        // Get current month's transactions
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const currentMonthName = now.toLocaleDateString('en-US', { month: 'long' });
+        
+        const currentMonthTransactions = myTransactions.filter(t => {
+            const transDate = new Date(t.created_at);
+            return transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear;
+        });
+        
+        const totalExpenses = currentMonthTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-
-        const isPositive = myBalance >= 0;
-        const balanceColor = isPositive ? 'var(--success)' : 'var(--danger)';
-        const balanceText = isPositive ? 'You are owed' : 'You owe';
 
         let html = `
             <div class="fade-in" style="padding-bottom: 80px;">
-                <h1 class="mb-4">Expenses</h1>
+                <h1 style="margin-bottom: 24px; font-size: 1.8rem;">Expenses</h1>
 
                 <!-- Total Expenses Card -->
-                <div class="card mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div style="color: rgba(255,255,255,0.9); font-size: 0.9rem; margin-bottom: 4px;">Your Total Expenses</div>
-                    <div style="font-size: 2.5rem; font-weight: 700; color: white;">
-                        ₹${totalExpenses.toFixed(2)}
+                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); cursor: pointer; position: relative; margin-bottom: 32px; padding: 24px;" onclick="app.navigate('expense-analytics')">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <div style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-bottom: 8px;">${currentMonthName} Expense</div>
+                            <div style="font-size: 2.8rem; font-weight: 700; color: white; margin-bottom: 8px;">
+                                ₹${totalExpenses.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style="width: 52px; height: 52px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.6rem;">
+                            <i class="ph ph-chart-line"></i>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Overall Balance Card -->
-                <div class="card mb-4" style="background: linear-gradient(135deg, var(--bg-card), rgba(255,255,255,0.05));">
-                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 4px;">${balanceText}</div>
-                    <div style="font-size: 2.5rem; font-weight: 700; color: ${balanceColor};">
-                        ₹${Math.abs(myBalance).toFixed(2)}
+                    <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-top: 4px;">
+                        Click to view detailed analytics →
                     </div>
                 </div>
 
                 <!-- Individual Balances -->
-                <div class="card mb-4">
-                    <h3 style="font-size: 1rem; margin: 0 0 12px 0; color: var(--text-secondary);">Balance Breakdown</h3>
+                <div class="card" style="margin-bottom: 28px; padding: 20px;">
+                    <h3 style="font-size: 1.15rem; margin: 0 0 20px 0; color: var(--text-primary); font-weight: 600;">Balance Breakdown</h3>
         `;
 
         // Show individual balances
@@ -77,55 +87,153 @@ export async function renderTransactions() {
                 const text = isOwed ? 'owes you' : 'you owe';
 
                 html += `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: ${color}20; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${color};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--bg-tertiary);">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="width: 42px; height: 42px; border-radius: 50%; background: ${color}20; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${color}; font-size: 1.1rem;">
                                 ${userName.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <div style="font-weight: 600; color: var(--text-primary);">${userName}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">${text}</div>
+                                <div style="font-weight: 600; color: var(--text-primary); font-size: 1.05rem; margin-bottom: 2px;">${userName}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">${text}</div>
                             </div>
                         </div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: ${color};">
+                        <div style="font-size: 1.3rem; font-weight: 700; color: ${color};">
                             ${icon} ₹${Math.abs(amount).toFixed(2)}
                         </div>
                     </div>
                 `;
             });
         } else {
-            html += '<p style="color: var(--text-secondary); margin: 0;">All settled up! 🎉</p>';
+            html += '<p style="color: var(--text-secondary); margin: 0; padding: 20px 0; text-align: center;">All settled up! 🎉</p>';
         }
 
         html += `
                 </div>
 
                 <!-- Add Button -->
-                <button id="add-expense-btn" class="btn btn-primary mb-4">
+                <button id="add-expense-btn" class="btn btn-primary" style="margin-bottom: 28px; padding: 14px 24px; font-size: 1rem;">
                     <span style="margin-right: 8px;">+</span> Add Expense
                 </button>
 
-                <!-- Add Form (Hidden) -->
-                <div id="add-expense-form" class="card mb-4 hidden">
-                    <h3 class="mb-4">New Expense</h3>
-                    <div class="input-group">
-                        <input type="text" id="desc" class="input-field" placeholder="Description (e.g. Milk)">
+                <!-- Recent List -->
+                <h3 style="margin-bottom: 20px; font-size: 1.3rem; color: var(--text-primary);">Your Recent Expenses</h3>
+                <div class="transactions-list">
+        `;
+
+        // Filter to show only current user's transactions
+        if (myTransactions.length === 0) {
+            html += '<p style="color: var(--text-secondary); padding: 20px 0; text-align: center;">You haven\'t added any expenses yet.</p>';
+        } else {
+            myTransactions.forEach(t => {
+                const splitBetween = t.split_between ? JSON.parse(t.split_between) : [];
+                const splitBetweenNames = splitBetween.map(id => {
+                    const member = members.find(m => m.id === id);
+                    return member ? member.name : 'Unknown';
+                }).join(', ');
+                
+                html += `
+                    <div class="card transaction-item" 
+                         data-id="${t.id}"
+                         data-description="${t.description}"
+                         data-amount="${t.amount}"
+                         data-payer="${currentUser.name}"
+                         data-split-between='${JSON.stringify(splitBetween)}'
+                         data-split-names="${splitBetweenNames}"
+                         data-date="${t.created_at}"
+                         style="padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'"
+                         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">${t.description}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Paid by You</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="font-weight: 700; color: var(--text-primary); font-size: 1.15rem;">₹${parseFloat(t.amount).toFixed(2)}</div>
+                            <button class="delete-transaction-btn" data-id="${t.id}" style="background: var(--danger); color: white; border: none; padding: 8px 14px; border-radius: var(--radius-md); cursor: pointer; font-size: 0.9rem; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" onclick="event.stopPropagation()">
+                                <i class="ph ph-trash"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <input type="number" id="amount" class="input-field" placeholder="Amount (₹)">
+                `;
+            });
+        }
+
+        html += '</div></div>';
+        
+        // Add custom delete confirmation modal
+        html += `
+            <div id="delete-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center;">
+                <div style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideIn 0.3s ease-out;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--danger); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            <i class="ph ph-warning"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.25rem; color: var(--text-primary);">Delete Expense?</h3>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-secondary); margin: 0 0 24px 0; line-height: 1.5;">
+                        Are you sure you want to delete this expense? This will reverse all balance changes. This action cannot be undone.
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancel-delete-btn" class="btn" style="background: var(--bg-input); color: var(--text-primary);">Cancel</button>
+                        <button id="confirm-delete-btn" class="btn" style="background: var(--danger); color: white;">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add expense detail modal
+        html += `
+            <div id="expense-detail-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center;">
+                <div style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; max-width: 450px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideIn 0.3s ease-out;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.4rem; color: var(--text-primary);">Expense Details</h3>
+                        <button id="close-detail-modal" style="background: none; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='none'">
+                            <i class="ph ph-x"></i>
+                        </button>
                     </div>
                     
-                    <!-- User Selection -->
+                    <div id="expense-detail-content" style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Content will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add expense modal
+        html += `
+            <div id="add-expense-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center; overflow-y: auto; padding: 20px;">
+                <div style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; max-width: 500px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideIn 0.3s ease-out; margin: auto;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Add New Expense</h3>
+                        <button id="close-add-modal" style="background: none; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='none'">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
+                    
                     <div class="input-group">
-                        <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">Split between:</label>
-                        <div id="user-checkboxes" style="display: flex; flex-direction: column; gap: 8px;">
+                        <input type="text" id="desc" class="input-field" placeholder="Description (e.g. Milk)" style="margin-bottom: 16px;">
+                    </div>
+                    
+                    <div class="input-group">
+                        <input type="number" id="amount" class="input-field" placeholder="Amount (₹)" style="margin-bottom: 16px;">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; display: block; font-weight: 600;">Split between:</label>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 12px; font-style: italic; padding: 8px; background: var(--bg-input); border-radius: var(--radius-sm);">
+                            💡 Select one person = they owe you full amount | Select multiple = split equally
+                        </div>
+                        <div id="user-checkboxes" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding: 4px;">
         `;
 
         members.forEach(member => {
+            const isChecked = member.id !== currentUser.id;
             html += `
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: var(--radius-md); background: var(--bg-input);">
-                    <input type="checkbox" class="user-checkbox" value="${member.id}" checked style="width: 18px; height: 18px; cursor: pointer;">
-                    <span style="font-size: 0.9rem; color: var(--text-primary);">${member.name}</span>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border-radius: var(--radius-md); background: var(--bg-input); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-input)'">
+                    <input type="checkbox" class="user-checkbox" value="${member.id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500;">${member.name}${member.id === currentUser.id ? ' (You)' : ''}</span>
                 </label>
             `;
         });
@@ -134,54 +242,48 @@ export async function renderTransactions() {
                         </div>
                     </div>
                     
-                    <div class="flex-center" style="gap: 10px;">
-                        <button id="cancel-expense" class="btn" style="background: var(--bg-input);">Cancel</button>
-                        <button id="save-expense" class="btn btn-primary">Save</button>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                        <button id="cancel-expense" class="btn" style="background: var(--bg-input); color: var(--text-primary);">Cancel</button>
+                        <button id="save-expense" class="btn btn-primary">Save Expense</button>
                     </div>
                 </div>
-
-                <!-- Recent List -->
-                <h3 class="mb-2">Recent</h3>
-                <div class="transactions-list">
+            </div>
         `;
-
-        if (transactions.length === 0) {
-            html += '<p style="color: var(--text-secondary);">No transactions yet.</p>';
-        } else {
-            transactions.forEach(t => {
-                html += `
-                    <div class="card mb-2" style="padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 600;">${t.description}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Paid by ${t.user_name}</div>
-                        </div>
-                        <div style="font-weight: 700; color: var(--text-primary);">₹${parseFloat(t.amount).toFixed(2)}</div>
-                    </div>
-                `;
-            });
-        }
-
-        html += '</div></div>';
+        
         container.innerHTML = html;
 
         // Handlers
-        const form = document.getElementById('add-expense-form');
+        const addExpenseModal = document.getElementById('add-expense-modal');
         const addBtn = document.getElementById('add-expense-btn');
         const cancelBtn = document.getElementById('cancel-expense');
+        const closeModalBtn = document.getElementById('close-add-modal');
         const saveBtn = document.getElementById('save-expense');
 
+        // Show modal when add button is clicked
         addBtn.addEventListener('click', () => {
-            form.classList.remove('hidden');
-            addBtn.classList.add('hidden');
+            addExpenseModal.style.display = 'flex';
         });
 
-        cancelBtn.addEventListener('click', () => {
-            form.classList.add('hidden');
-            addBtn.classList.remove('hidden');
+        // Close modal handlers
+        const closeModal = () => {
+            addExpenseModal.style.display = 'none';
             // Reset form
             document.getElementById('desc').value = '';
             document.getElementById('amount').value = '';
-            document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = true);
+            // Reset checkboxes: uncheck yourself, check others
+            document.querySelectorAll('.user-checkbox').forEach(cb => {
+                cb.checked = (parseInt(cb.value) !== currentUser.id);
+            });
+        };
+
+        cancelBtn.addEventListener('click', closeModal);
+        closeModalBtn.addEventListener('click', closeModal);
+
+        // Close modal when clicking outside
+        addExpenseModal.addEventListener('click', (e) => {
+            if (e.target === addExpenseModal) {
+                closeModal();
+            }
         });
 
         saveBtn.addEventListener('click', async () => {
@@ -221,11 +323,8 @@ export async function renderTransactions() {
                     list.innerHTML = tempHtml + list.innerHTML;
                 }
 
-                // Reset form immediately
-                form.classList.add('hidden');
-                addBtn.classList.remove('hidden');
-                document.getElementById('desc').value = '';
-                document.getElementById('amount').value = '';
+                // Close modal and reset form
+                closeModal();
 
                 showToast('Saved offline. Will sync when online.', 'warning');
 
@@ -256,6 +355,149 @@ export async function renderTransactions() {
             }
         });
 
+        // Delete Transaction Handlers with Custom Modal
+        const deleteModal = document.getElementById('delete-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        let pendingDeleteId = null;
+        let pendingDeleteButton = null;
+
+        // Show modal when delete button is clicked
+        document.querySelectorAll('.delete-transaction-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                pendingDeleteId = e.currentTarget.getAttribute('data-id');
+                pendingDeleteButton = e.currentTarget;
+                deleteModal.style.display = 'flex';
+            });
+        });
+
+        // Cancel deletion
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            pendingDeleteId = null;
+            pendingDeleteButton = null;
+        });
+
+        // Close modal when clicking outside
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+                pendingDeleteId = null;
+                pendingDeleteButton = null;
+            }
+        });
+
+        // Confirm deletion
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!pendingDeleteId || !pendingDeleteButton) return;
+
+            const originalText = pendingDeleteButton.innerHTML;
+            pendingDeleteButton.disabled = true;
+            pendingDeleteButton.innerHTML = '<i class="ph ph-spinner"></i>';
+            confirmDeleteBtn.disabled = true;
+            confirmDeleteBtn.textContent = 'Deleting...';
+
+            try {
+                const token = localStorage.getItem('token');
+                await apiCall('/transactions/delete', 'POST', { transaction_id: parseInt(pendingDeleteId) }, token);
+                showToast('Expense deleted successfully', 'success');
+                deleteModal.style.display = 'none';
+                renderTransactions(); // Refresh the page
+            } catch (e) {
+                showToast(e.message || 'Failed to delete expense', 'error');
+                pendingDeleteButton.disabled = false;
+                pendingDeleteButton.innerHTML = originalText;
+                confirmDeleteBtn.disabled = false;
+                confirmDeleteBtn.textContent = 'Delete';
+                deleteModal.style.display = 'none';
+            }
+        });
+
+        // Expense Detail Modal Handlers
+        const expenseDetailModal = document.getElementById('expense-detail-modal');
+        const closeDetailBtn = document.getElementById('close-detail-modal');
+        const expenseDetailContent = document.getElementById('expense-detail-content');
+
+        // Show detail modal when clicking on a transaction
+        document.querySelectorAll('.transaction-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const description = item.getAttribute('data-description');
+                const amount = parseFloat(item.getAttribute('data-amount'));
+                const payer = item.getAttribute('data-payer');
+                const splitBetween = JSON.parse(item.getAttribute('data-split-between'));
+                const splitNames = item.getAttribute('data-split-names');
+                const date = new Date(item.getAttribute('data-date'));
+                const formattedDate = date.toLocaleDateString('en-US', { 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // Calculate split amount
+                const splitAmount = splitBetween.length > 0 ? (amount / splitBetween.length) : amount;
+
+                // Build split details
+                let splitDetails = '';
+                if (splitBetween.length === 0) {
+                    splitDetails = '<div style="color: var(--text-secondary); font-style: italic;">No split information available</div>';
+                } else {
+                    splitDetails = splitBetween.map(id => {
+                        const member = members.find(m => m.id === id);
+                        const memberName = member ? member.name : 'Unknown';
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-input); border-radius: var(--radius-sm);">
+                                <div style="font-weight: 500; color: var(--text-primary);">${memberName}</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">₹${splitAmount.toFixed(2)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                expenseDetailContent.innerHTML = `
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: var(--radius-md); color: white;">
+                        <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px;">${description}</div>
+                        <div style="font-size: 2.2rem; font-weight: 700;">₹${amount.toFixed(2)}</div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">PAID BY</div>
+                        <div style="padding: 12px 16px; background: var(--bg-input); border-radius: var(--radius-md);">
+                            <div style="font-weight: 600; color: var(--text-primary); font-size: 1.05rem;">${payer}</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">SPLIT BETWEEN</div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            ${splitDetails}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">DATE & TIME</div>
+                        <div style="padding: 12px 16px; background: var(--bg-input); border-radius: var(--radius-md);">
+                            <div style="color: var(--text-primary);">${formattedDate}</div>
+                        </div>
+                    </div>
+                `;
+
+                expenseDetailModal.style.display = 'flex';
+            });
+        });
+
+        // Close detail modal
+        closeDetailBtn.addEventListener('click', () => {
+            expenseDetailModal.style.display = 'none';
+        });
+
+        // Close when clicking outside
+        expenseDetailModal.addEventListener('click', (e) => {
+            if (e.target === expenseDetailModal) {
+                expenseDetailModal.style.display = 'none';
+            }
+        });
 
     } catch (error) {
         container.innerHTML = `<div class="p-4" style="color: var(--danger)">Error: ${error.message}</div>`;
