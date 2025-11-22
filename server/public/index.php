@@ -127,6 +127,9 @@ $routes = [
     '/schedule/get' => ['ScheduleController', 'get'],
     '/schedule/generate-plan' => ['ScheduleController', 'generatePlan'],
     
+    // Updates
+    '/updates/check' => ['UpdateController', 'getLatestUpdate'],
+    
     // Test
     '/test' => ['TestController', 'index'],
 ];
